@@ -15,10 +15,11 @@ and export. The shared apparatus is the point; the levels are what it watches.
   (Titanic, Britannic, Marmalade Run). Take the helm against impossible odds, or
   bear witness while the director camera frames each beat for the text renderer.
   Scenario montage, 1×–8× time, demonstration mode, Greatest Hits shelf.
-- **Level 2 — Scrapcraft Story Cinema** *(in production)* — automated storytelling
-  inside the Scrapcraft voxel engine, honouring its young author's storyline:
-  less game, more watching the story happen, with voxel-render and text-render
-  dials to turn together and study how they affect each other.
+- **[Level 2 — Scrapcraft Story Cinema](https://superinstance.github.io/Projectionist/level-2/)** —
+  automated storytelling inside the Scrapcraft voxel engine, honouring its young
+  author's storyline: less game, more watching the story happen, with
+  voxel-render and text-render dials to turn together and study how they affect
+  each other. Story treatment: [LEVEL2.md](LEVEL2.md).
 
 ## The shared apparatus
 
