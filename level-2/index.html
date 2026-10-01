@@ -2256,6 +2256,30 @@
 
   <button id="cinema-skip">SKIP BEAT &#9197;</button>
   <script>window.__CINEMA__ = true;</script>
+  <script>
+    // Level 2: surface boot/runtime errors on screen (DevTools isn't always handy).
+    (function () {
+      var box = null;
+      function show(msg) {
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'l2-errors';
+          box.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:70vw;z-index:9999;' +
+            'background:rgba(20,4,4,.92);border:1px solid #f66;color:#ffb3b3;' +
+            "font-family:monospace;font-size:11px;padding:8px 12px;border-radius:6px;white-space:pre-wrap;";
+          document.body.appendChild(box);
+        }
+        box.textContent += msg + '\n';
+      }
+      var orig = console.error;
+      console.error = function () {
+        try { show('[console.error] ' + Array.prototype.map.call(arguments, String).join(' ')); } catch (e) {}
+        return orig.apply(console, arguments);
+      };
+      window.addEventListener('error', function (e) { show('[error] ' + (e.message || e.type)); });
+      window.addEventListener('unhandledrejection', function (e) { show('[rejection] ' + (e.reason && e.reason.message || e.reason)); });
+    })();
+  </script>
   <!-- Level 2: three.js arrives via CDN so the engine bundle stays push-sized. -->
 
   <script>
