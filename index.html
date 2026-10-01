@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>Sail and Sink</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@500;650;750;850&display=swap');
+    :root {
+      color-scheme: light dark;
+      --ink:#172a34; --muted:#526a72; --paper:#f5fbf7; --panel:#ffffff;
+      --line:#c7d9d5; --sea:#1aa7b8; --deep:#0c6f83; --sun:#ffce5b;
+      --coral:#f46f55; --lime:#86c96f; --blue:#246f91; --code:#0d2028;
+      --code-ink:#aef4d1; --shadow:0 14px 36px rgba(22,65,72,.15);
+    }
+    @media (prefers-color-scheme:dark){
+      :root{--ink:#eaf6ef;--muted:#a9c0bc;--paper:#0e1a20;--panel:#15272d;--line:#355059;--sea:#137d8e;--deep:#075266;--code:#081418;--code-ink:#b6f5d8;--shadow:0 18px 40px rgba(0,0,0,.28)}
+    }
+    *{box-sizing:border-box} html{background:var(--paper)} body{margin:0;background:var(--paper);color:var(--ink);font-family:"Nunito",sans-serif;min-width:0}
+    button,input,select{font:inherit} button{color:inherit}
+    .page{width:min(1500px,100%);margin:auto;padding:clamp(10px,2vw,28px)}
+    .statusbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+    .stat{background:var(--panel);border:1px solid var(--line);padding:9px 12px;min-width:0;box-shadow:0 4px 14px rgba(20,70,75,.06)}
+    .stat:first-child{border-radius:18px 5px 5px 18px}.stat:last-child{border-radius:5px 18px 18px 5px}
+    .stat small{display:block;color:var(--muted);font-size:.69rem;font-weight:850;letter-spacing:.07em;text-transform:uppercase}
+    .stat strong{display:block;font-size:clamp(.92rem,2vw,1.2rem);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .playgrid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px}
+    .viewport{position:relative;background:var(--panel);border:1px solid var(--line);overflow:hidden;min-height:400px;box-shadow:var(--shadow)}
+    .viewport:first-child{border-radius:26px 7px 7px 26px}.viewport:nth-child(2){border-radius:7px 26px 26px 7px}
+    .viewport canvas{display:block;width:100%;height:100%;min-height:400px;touch-action:none}
+    .projection{background:var(--code);color:var(--code-ink);display:grid;grid-template-rows:auto 1fr;min-width:0}
+    .framehead{font:500 .68rem/1.2 "DM Mono",monospace;padding:9px 12px;border-bottom:1px solid #20434b;color:#78c7ae;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #ascii{margin:0;padding:10px 7px 7px;overflow:hidden;white-space:pre;text-align:center;font:500 clamp(4.4px,.72vw,10px)/.84 "DM Mono",monospace;letter-spacing:0;align-self:stretch;display:flex;align-items:center;justify-content:center;min-height:360px}
+    .tag{position:absolute;top:10px;left:10px;background:rgba(9,32,39,.82);color:#fff;border-radius:999px;padding:6px 10px;font-size:.72rem;font-weight:850;letter-spacing:.04em;backdrop-filter:blur(6px)}
+    .full{position:absolute;right:9px;top:9px;border:0;border-radius:999px;background:rgba(9,32,39,.82);color:white;padding:7px 10px;cursor:pointer;font-size:.75rem}
+    .helm{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(8,34,43,.82);color:#fff;padding:8px 11px;border-radius:16px;backdrop-filter:blur(8px);white-space:nowrap;font-size:.78rem}
+    .helm button{width:38px;height:34px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);border-radius:10px;font-weight:900;cursor:pointer;color:#fff}
+    .helm button:active,.helm button.active{background:var(--sun);color:#243038}
+    .autopill{border:0!important;width:auto!important;padding:0 10px;background:var(--coral)!important}
+    .quest{margin-top:10px;display:grid;grid-template-columns:minmax(220px,.68fr) minmax(0,1.32fr);gap:10px}
+    .quest-card,.adapt{background:var(--panel);border:1px solid var(--line);padding:14px 16px}
+    .quest-card{border-radius:18px 6px 18px 6px}.adapt{border-radius:6px 18px 6px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+    .quest-card small,.adapt small{display:block;color:var(--muted);font-size:.72rem;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.quest-card strong{font-size:1.05rem}.adapt strong{font-size:.98rem}.motionbar{height:8px;background:var(--line);width:min(200px,28vw);overflow:hidden;border-radius:99px}.motionbar i{display:block;height:100%;width:35%;background:var(--coral);border-radius:99px;transition:width .35s}
+    .tabs{margin-top:18px}.tablist{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px}
+    .tablist button{border:0;background:transparent;padding:8px 13px;border-radius:10px;cursor:pointer;font-weight:850;color:var(--muted)}.tablist button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+    .panel{display:none;padding:20px 2px 8px}.panel.active{display:block}.panel h2{font-size:clamp(1.35rem,2.5vw,2rem);margin:0 0 6px}.panel .lede{color:var(--muted);max-width:760px;margin:0 0 18px;line-height:1.55}
+    .controls{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}.control{background:var(--panel);border:1px solid var(--line);padding:14px;border-radius:12px}.control label{display:flex;justify-content:space-between;font-size:.8rem;font-weight:850;margin-bottom:9px}.control input,.control select{width:100%;accent-color:var(--coral)}
+    .switches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.switches button,.download{border:1px solid var(--line);background:var(--panel);padding:9px 13px;border-radius:11px;cursor:pointer;font-weight:850}.switches button.on{background:var(--sea);color:white;border-color:transparent}
+    .reel{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.clip{min-height:160px;background:var(--code);color:var(--code-ink);border:1px solid var(--line);border-radius:13px;overflow:hidden;cursor:pointer;text-align:left;padding:0}.clip pre{font:500 5px/.85 "DM Mono";white-space:pre;margin:0;padding:10px;overflow:hidden;height:125px}.clip b{display:block;padding:8px 10px;background:#112a31;color:#e8fff3;font-size:.8rem}.empty{grid-column:1/-1;padding:28px;border:1px dashed var(--line);color:var(--muted);border-radius:14px;text-align:center}
+    .data-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:12px}.formula{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;line-height:1.55}.formula code{font-family:"DM Mono";color:var(--coral)}
+    #log{margin:0;background:var(--code);color:var(--code-ink);border-radius:14px;padding:14px;height:260px;overflow:auto;font:400 .7rem/1.5 "DM Mono";white-space:pre-wrap;word-break:break-word}
+    .future{display:grid;grid-template-columns:1fr 1fr;gap:14px}.future article{padding:18px 0;border-top:3px solid var(--sea)}.future article:nth-child(2){border-color:var(--coral)}.future h3{margin:0 0 7px}.future p{margin:0;color:var(--muted);line-height:1.55}
+    .start{position:fixed;inset:0;z-index:10;background:rgba(5,25,33,.76);display:grid;place-items:center;padding:20px;backdrop-filter:blur(12px)}.start.hidden{display:none}.startbox{width:min(580px,100%);background:var(--panel);border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.35);border-radius:30px 9px 30px 9px;padding:clamp(24px,5vw,46px)}
+    .startbox h1{font-size:clamp(2.2rem,7vw,4.7rem);line-height:.92;letter-spacing:-.055em;margin:0 0 14px;max-width:500px}.startbox p{font-size:1.05rem;line-height:1.55;color:var(--muted);margin:0 0 22px}.start-actions{display:flex;gap:10px;flex-wrap:wrap}.primary,.secondary{border:0;padding:12px 17px;border-radius:13px;cursor:pointer;font-weight:900}.primary{background:var(--coral);color:white}.secondary{background:var(--ink);color:var(--paper)}
+    .toast{position:fixed;z-index:8;left:50%;top:18px;transform:translate(-50%,-130%);background:#112b32;color:#fff;padding:10px 15px;border-radius:14px;box-shadow:var(--shadow);font-weight:800;transition:transform .3s;max-width:90%;text-align:center}.toast.show{transform:translate(-50%,0)}
+    @media(max-width:800px){.page{padding:8px}.statusbar{grid-template-columns:1fr 1fr}.stat:first-child,.stat:last-child{border-radius:12px}.playgrid{grid-template-columns:1fr}.viewport,.viewport:first-child,.viewport:nth-child(2){border-radius:18px;min-height:330px}.viewport canvas{min-height:330px}.projection{height:330px}#ascii{min-height:285px;font-size:4.4px}.quest{grid-template-columns:1fr}.controls{grid-template-columns:1fr 1fr}.reel{grid-template-columns:1fr}.data-grid,.future{grid-template-columns:1fr}.adapt{align-items:flex-start}.motionbar{width:100px}.helm{bottom:8px}.page{padding-bottom:26px}}
+    @media(max-width:440px){.controls{grid-template-columns:1fr}.statusbar{gap:5px}.stat{padding:7px 9px}.stat strong{font-size:.86rem}.viewport,.viewport canvas{min-height:300px}.projection{height:300px}#ascii{min-height:255px;font-size:3.55px}.helm{gap:5px;padding:6px 7px}.helm button{width:34px}.quest-card,.adapt{padding:11px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.toast{transition:none}}
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="start" id="start">
+    <section class="startbox">
+      <h1>Small boat.<br>Unreasonable sea.</h1>
+      <p>Haul candy-colored cargo between peculiar islands. The deck tilts, the crates slide, and the ocean has opinions.</p>
+      <div class="start-actions">
+        <button class="primary" id="sailBtn">Set sail — take the helm</button>
+        <button class="secondary" id="watchBtn">Watch it play itself</button>
+      </div>
+    </section>
+  </div>
+
+  <main class="page">
+    <section class="statusbar" aria-label="Voyage status">
+      <div class="stat"><small>Coins</small><strong id="coins">0 shells</strong></div>
+      <div class="stat"><small>On deck</small><strong id="cargo">2 crates</strong></div>
+      <div class="stat"><small>Hull</small><strong id="hull">100% · jaunty</strong></div>
+      <div class="stat"><small>Helm</small><strong id="helmStatus">Autopilot</strong></div>
+    </section>
+
+    <section class="playgrid" aria-label="Two views of one voyage">
+      <div class="viewport" id="gameView">
+        <canvas id="game" width="900" height="520" aria-label="Animated toy-like sailing game"></canvas>
+        <span class="tag">PLAY VIEW</span><button class="full" data-full="gameView">Full view</button>
+        <div class="helm" aria-label="Steering controls"><button data-steer="-1" aria-label="Steer left">←</button><button class="autopill" id="autoBtn">AUTO</button><button data-steer="1" aria-label="Steer right">→</button></div>
+      </div>
+      <div class="viewport projection" id="textView">
+        <div class="framehead" id="framehead"># frame 1 t=0.00s cols=72 rows=24 engine=glyph</div>
+        <pre id="ascii" aria-label="Projectionist text rendering of the same scene"></pre>
+        <span class="tag">PROJECTIONIST</span><button class="full" data-full="textView">Full view</button>
+      </div>
+    </section>
+
+    <section class="quest">
+      <div class="quest-card"><small>Current mischief</small><strong id="quest">Deliver 2 crates to Gull Rock</strong></div>
+      <div class="adapt"><div><small>Adaptive renderer</small><strong id="adaptText">Reading the water…</strong></div><div class="motionbar" aria-hidden="true"><i id="motionFill"></i></div></div>
+    </section>
+
+    <section class="tabs">
+      <div class="tablist" role="tablist" aria-label="Below deck">
+        <button role="tab" aria-selected="true" data-tab="render">Render room</button>
+        <button role="tab" aria-selected="false" data-tab="reel">Voyage reel <span id="reelCount">0</span></button>
+        <button role="tab" aria-selected="false" data-tab="data">Training log</button>
+        <button role="tab" aria-selected="false" data-tab="future">Chart room</button>
+      </div>
+      <div class="panel active" id="render" role="tabpanel">
+        <h2>Make light into marks</h2><p class="lede">Both windows watch the same voyage. Glyph maps brightness to density; Sculpt traces the scene’s changing edges.</p>
+        <div class="switches"><button class="on" data-engine="glyph">Glyph engine</button><button data-engine="sculpt">Sculpt engine</button><button class="on" id="tuneBtn">Auto-tune on</button></div>
+        <div class="controls">
+          <div class="control"><label for="colsRange">Columns <span id="colsVal">72</span></label><input id="colsRange" type="range" min="40" max="96" value="72"></div>
+          <div class="control"><label for="fpsRange">Frames/sec <span id="fpsVal">9</span></label><input id="fpsRange" type="range" min="4" max="15" value="9"></div>
+          <div class="control"><label for="contrastRange">Contrast <span id="contrastVal">1.10</span></label><input id="contrastRange" type="range" min="70" max="180" value="110"></div>
+          <div class="control"><label for="gammaRange">Gamma <span id="gammaVal">0.95</span></label><input id="gammaRange" type="range" min="60" max="150" value="95"></div>
+        </div>
+      </div>
+      <div class="panel" id="reel" role="tabpanel">
+        <h2>The sea remembers the good bits</h2><p class="lede">Deliveries, dramatic puddles and narrow escapes become tiny text-frame clips. Pick one to replay it.</p><div class="reel" id="reelGrid"><div class="empty">No heroics yet. Give the boat a minute.</div></div>
+      </div>
+      <div class="panel" id="data" role="tabpanel">
+        <h2>A useful wake</h2><p class="lede">One row per second, ready for later experiments. Nothing leaves this page unless you download it.</p>
+        <div class="data-grid"><div class="formula"><strong>Placeholder reward, not intelligence</strong><p>The quality score combines edge density near a useful target, contrast use, and temporal stability:</p><code>0.40 edge band + 0.35 contrast + 0.25 stability</code><p>It is a legible starting signal for a future supervised policy, not a claim that the renderer knows what looks good.</p><button class="download" id="downloadBtn">Download training log · JSONL</button></div><pre id="log">Waiting for the first sample…</pre></div>
+      </div>
+      <div class="panel" id="future" role="tabpanel">
+        <h2>Built small enough to teach</h2><p class="lede">Today the rules are visible: more motion means fewer columns and more frames. Tomorrow the same inputs can train something subtler.</p>
+        <div class="future"><article><h3>What works now</h3><p>Seeded islands, summed-sine waves, sampled buoyancy, deck friction, whirlpool pull, hull flooding, shared-frame text rendering, adaptive resolution, voyage clips and an exportable ring buffer.</p></article><article><h3>What the bigger machines inherit</h3><p>Train a compact policy from scene stats to render settings on GPU machines. Blend the documented heuristic with human preference labels, compare against the rule-based baseline, then keep only improvements people can actually see.</p></article></div>
+      </div>
+    </section>
+  </main>
+<script>
+(function(){
+  'use strict';
+  // Sail & Sink is intentionally self-contained. The scene, physics, text renderer,
+  // logging contract, and future-policy seam all live in this file for easy handoff.
+  var canvas=document.getElementById('game'), ctx=canvas.getContext('2d',{willReadFrequently:true});
+  var ascii=document.getElementById('ascii'), head=document.getElementById('framehead');
+  var sample=document.createElement('canvas'), sctx=sample.getContext('2d',{willReadFrequently:true});
+  var TAU=Math.PI*2, startTime=performance.now(), last=performance.now(), projLast=0, logLast=0, frameNo=0;
+  var keys={}, heldSteer=0, manualUntil=0, auto=true, running=false, engine='glyph', autoTune=true;
+  var cols=72, targetCols=72, targetFps=9, fps=9, contrast=1.1, gamma=.95, prevLum=null, motion=.15, cameraMotion=0;
+  var logBuffer=[], reel=[], captureFrames=[], captureLabel='', lastAscii='';
+  var seed=31691;
+  function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+  var islandNames=['Button Bay','Gull Rock','Marmalade Key','Sock Island','Pepper Point','Noodle Cay','Crabapple Dock','Mooncap'];
+  var colors=['#ff8a5f','#ffd05c','#73d5a0','#e582bd','#74b8ee','#a6df64','#f59a68','#c492ed'];
+  var islands=[];
+  for(var i=0;i<12;i++){var a=i/12*TAU+rand()*.25,r=260+i*135+rand()*90;islands.push({x:Math.cos(a)*r,y:Math.sin(a)*r,name:islandNames[i%islandNames.length],color:colors[i%colors.length],rad:40+rand()*25,palms:1+Math.floor(rand()*3)});}
+  var rocks=[];for(i=0;i<24;i++)rocks.push({x:(rand()-.5)*3300,y:(rand()-.5)*3300,r:9+rand()*11});
+  var whirlpools=[];for(i=0;i<6;i++)whirlpools.push({x:(rand()-.5)*2800,y:(rand()-.5)*2800,r:100+rand()*45});
+  var ducks=[];for(i=0;i<9;i++)ducks.push({x:(rand()-.5)*2300,y:(rand()-.5)*2300,got:false});
+  var boat={x:0,y:0,heading:.2,speed:46,turn:0,roll:0,pitch:0,bob:0,hull:100,flood:0,coins:0,target:0,cargo:[],deliveries:0,streak:0,duckCount:0,hitCooldown:0,whirlTime:0};
+  function addCargo(n){for(var j=0;j<n;j++){if(boat.cargo.length>=5)break;boat.cargo.push({x:(j%2?8:-8)+(rand()-.5)*3,y:-5+Math.floor(j/2)*14,vx:0,vy:0,color:colors[(boat.target+2+j)%colors.length]});}}
+  addCargo(2);
+  function wave(x,y,t){return Math.sin(x*.014+t*1.5)*.52+Math.sin(y*.021-t*1.15)*.32+Math.sin((x+y)*.009+t*.72)*.22}
+  function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(function(){el.classList.remove('show')},2400)}
+  function sound(type){try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!sound.ac)sound.ac=new AC();var ac=sound.ac;if(ac.state==='suspended')ac.resume();var o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);var now=ac.currentTime;o.type=type==='sink'?'sawtooth':'sine';o.frequency.setValueAtTime(type==='coin'?520:type==='sink'?220:330,now);o.frequency.exponentialRampToValueAtTime(type==='sink'?70:780,now+.32);g.gain.setValueAtTime(.06,now);g.gain.exponentialRampToValueAtTime(.001,now+.36);o.start(now);o.stop(now+.38)}catch(e){}}
+  function highlight(label){if(captureLabel)return;captureLabel=label;captureFrames=[];}
+  function finishHighlight(){if(!captureLabel||captureFrames.length<5)return;reel.unshift({label:captureLabel,frames:captureFrames.slice(0,8)});reel=reel.slice(0,6);captureLabel='';captureFrames=[];renderReel();}
+  function boatToWorld(lx,ly){var c=Math.cos(boat.heading),s=Math.sin(boat.heading);return{x:boat.x+lx*c-ly*s,y:boat.y+lx*s+ly*c}}
+  function nearestTarget(){return islands[boat.target%islands.length]}
+  function setTarget(n){boat.target=(n+islands.length)%islands.length;document.getElementById('quest').textContent='Deliver '+Math.max(1,boat.cargo.length)+' crates to '+nearestTarget().name;}
+  function update(dt,t){
+    var steer=heldSteer+(keys.ArrowLeft||keys.a?-1:0)+(keys.ArrowRight||keys.d?1:0);
+    if(steer){manualUntil=t+4500;auto=false;}
+    if(auto||t>manualUntil){auto=true;var target=nearestTarget(),desired=Math.atan2(target.y-boat.y,target.x-boat.x),diff=Math.atan2(Math.sin(desired-boat.heading),Math.cos(desired-boat.heading));steer=Math.max(-1,Math.min(1,diff*1.8));}
+    var throttle=(keys.ArrowUp||keys.w)?1:(keys.ArrowDown||keys.s)?-.5:0;
+    boat.speed+=((42+throttle*35)-boat.speed)*dt*1.2;boat.turn+=(steer-boat.turn)*dt*3.2;boat.heading+=boat.turn*dt*(.85+boat.speed/90);
+    var w=wave(boat.x,boat.y,t/1000),w2=wave(boat.x+30,boat.y,t/1000);boat.roll+=(boat.turn*.48+(w2-w)*.36-boat.roll)*dt*3;boat.pitch+=(wave(boat.x,boat.y+28,t/1000)-w-boat.pitch)*dt*2.4;boat.bob=w*5-boat.flood*.045;
+    boat.x+=Math.cos(boat.heading)*boat.speed*dt;boat.y+=Math.sin(boat.heading)*boat.speed*dt;
+    boat.hitCooldown=Math.max(0,boat.hitCooldown-dt);cameraMotion=Math.abs(boat.turn)*.6+Math.abs(w2-w)*.4;
+    // Whirlpool fields curve and pull the hull rather than teleporting it.
+    boat.whirlTime=Math.max(0,boat.whirlTime-dt);
+    whirlpools.forEach(function(v){var dx=v.x-boat.x,dy=v.y-boat.y,d=Math.hypot(dx,dy);if(d<v.r){var p=1-d/v.r;boat.heading+=p*dt*1.7;boat.x+=dx/(d||1)*p*24*dt;boat.y+=dy/(d||1)*p*24*dt;boat.whirlTime+=dt*1.8;if(boat.whirlTime>3){highlight('Whirlpool pirouette');boat.whirlTime=-8;toast('A very elegant whirlpool pirouette.')}}});
+    rocks.forEach(function(r){var d=Math.hypot(r.x-boat.x,r.y-boat.y);if(d<r.r+24&&boat.hitCooldown<=0){boat.hull=Math.max(0,boat.hull-32);boat.flood+=8;boat.hitCooldown=2;highlight('Rock! Almost stylish');toast('Bonk. The hull has a new window.');sound('bonk');}});
+    ducks.forEach(function(d){if(!d.got&&Math.hypot(d.x-boat.x,d.y-boat.y)<33){d.got=true;boat.duckCount++;boat.coins+=3;highlight('Rubber duck rescue');toast('Duck aboard. It outranks everybody.');sound('coin')}});
+    // Deck cargo: lateral acceleration and sampled wave tilt push 2D bodies across a bounded deck.
+    var accel=-boat.turn*85, deckTilt=boat.roll*38;
+    for(i=boat.cargo.length-1;i>=0;i--){var c=boat.cargo[i];c.vx+=(accel+deckTilt)*dt;c.vy+=boat.pitch*28*dt;c.vx*=Math.pow(.84,dt*10);c.vy*=Math.pow(.82,dt*10);c.x+=c.vx*dt;c.y+=c.vy*dt;if(Math.abs(c.x)>22||Math.abs(c.y)>34){boat.cargo.splice(i,1);boat.streak=0;toast('Plop. One crate has chosen the sea.');highlight('Cargo overboard');sound('sink')}}
+    var dest=nearestTarget(),dist=Math.hypot(dest.x-boat.x,dest.y-boat.y);
+    if(dist<dest.rad+38){if(boat.cargo.length){var earned=boat.cargo.length*7;boat.coins+=earned;boat.deliveries+=boat.cargo.length;boat.streak++;toast('Delivered! +'+earned+' shells at '+dest.name);sound('coin');highlight('Delivery at '+dest.name);setTarget(boat.target+1);addCargo(2+Math.floor(rand()*2));}else{setTarget(boat.target+1);addCargo(2);toast('Fresh cargo aboard. The paperwork is mostly doodles.')}}
+    if(boat.hull<100)boat.flood=Math.min(100,boat.flood+dt*(100-boat.hull)*.012);else boat.flood=Math.max(0,boat.flood-dt*2);
+    if(boat.flood>=82||boat.hull<=0){highlight('The dignified sinking');sound('sink');toast('The sea wins this round. Half the shells, all the dignity.');boat.coins=Math.floor(boat.coins/2);boat.x=0;boat.y=0;boat.hull=100;boat.flood=0;boat.speed=30;boat.streak=0;boat.cargo=[];addCargo(2);}
+    if(boat.hull<100&&boat.hitCooldown<=0)boat.hull=Math.min(100,boat.hull+dt*.45);
+  }
+  function fitCanvas(){var rect=canvas.getBoundingClientRect(),dpr=Math.min(1.6,window.devicePixelRatio||1),w=Math.max(320,Math.round(rect.width*dpr)),h=Math.max(280,Math.round(rect.height*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}}
+  function worldScreen(x,y,scale){var dx=x-boat.x,dy=y-boat.y;return{x:canvas.width/2+dx*scale,y:canvas.height*.48+dy*scale*.56}}
+  function ellipse(x,y,rx,ry,fill,rot){ctx.save();ctx.translate(x,y);ctx.rotate(rot||0);ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,TAU);ctx.fillStyle=fill;ctx.fill();ctx.restore()}
+  function drawScene(t){
+    fitCanvas();var W=canvas.width,H=canvas.height,sc=Math.min(W/720,H/420)*.72;
+    var sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#9de7f0');sky.addColorStop(.45,'#d6f7ec');sky.addColorStop(.451,'#31b9c7');sky.addColorStop(1,'#087b94');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    ellipse(W*.82,H*.14,34*sc,34*sc,'rgba(255,222,104,.94)');
+    // Painterly wave ribbons provide motion, depth, and the source pixels for the text engine.
+    for(var row=0;row<13;row++){ctx.beginPath();var base=H*.48+row*H*.047;for(var x=-20;x<W+30;x+=18){var yy=base+Math.sin(x*.021+row*.62+t*.0017)*5*sc+Math.sin(x*.009-t*.001)*3*sc;if(x<0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.strokeStyle=row%2?'rgba(205,255,239,.34)':'rgba(2,95,122,.25)';ctx.lineWidth=(1.5+row*.08)*sc;ctx.stroke()}
+    // World objects are sorted back-to-front by screen y.
+    var things=[];islands.forEach(function(o){var p=worldScreen(o.x,o.y,sc);if(p.x>-140&&p.x<W+140&&p.y>H*.35-100&&p.y<H+120)things.push({y:p.y,kind:'island',o:o,p:p})});
+    rocks.forEach(function(o){var p=worldScreen(o.x,o.y,sc);if(p.x>-40&&p.x<W+40&&p.y>H*.4&&p.y<H+30)things.push({y:p.y,kind:'rock',o:o,p:p})});
+    whirlpools.forEach(function(o){var p=worldScreen(o.x,o.y,sc);if(p.x>-120&&p.x<W+120&&p.y>H*.4&&p.y<H+80)things.push({y:p.y,kind:'whirl',o:o,p:p})});
+    ducks.forEach(function(o){if(o.got)return;var p=worldScreen(o.x,o.y,sc);if(p.x>-30&&p.x<W+30&&p.y>H*.4&&p.y<H+30)things.push({y:p.y,kind:'duck',o:o,p:p})});things.sort(function(a,b){return a.y-b.y});
+    things.forEach(function(it){
+      var p=it.p,o=it.o;
+      if(it.kind==='island'){
+        ellipse(p.x,p.y+9*sc,o.rad*sc,o.rad*.34*sc,'rgba(5,76,85,.28)');
+        ellipse(p.x,p.y,o.rad*sc,o.rad*.43*sc,o.color);
+        ellipse(p.x,p.y-4*sc,o.rad*.72*sc,o.rad*.28*sc,'#f7d978');
+        for(var q=0;q<o.palms;q++){
+          var px=p.x+(q-(o.palms-1)/2)*15*sc;
+          ctx.strokeStyle='#755032';ctx.lineWidth=4*sc;ctx.beginPath();ctx.moveTo(px,p.y-5*sc);ctx.quadraticCurveTo(px+4*sc,p.y-31*sc,px-1*sc,p.y-43*sc);ctx.stroke();
+          for(var z=0;z<5;z++){
+            ctx.strokeStyle='#3f9c68';ctx.lineWidth=5*sc;ctx.beginPath();ctx.moveTo(px-1*sc,p.y-42*sc);ctx.lineTo(px+Math.cos(z*TAU/5)*18*sc,p.y-42*sc+Math.sin(z*TAU/5)*8*sc);ctx.stroke();
+          }
+        }
+        ctx.fillStyle='#18363a';ctx.font=(10*sc)+'px Nunito';ctx.textAlign='center';ctx.fillText(o.name,p.x,p.y+o.rad*.55*sc);
+      } else if(it.kind==='rock'){
+        ellipse(p.x,p.y,o.r*sc,o.r*.55*sc,'#5d7180',-.25);ellipse(p.x-3*sc,p.y-3*sc,o.r*.45*sc,o.r*.2*sc,'#90a2aa');
+      } else if(it.kind==='whirl'){
+        for(var k=0;k<4;k++){ctx.beginPath();ctx.arc(p.x,p.y,(14+k*10)*sc,t*.003+k,t*.003+k+Math.PI*1.25);ctx.strokeStyle='rgba(225,255,248,'+(.65-k*.1)+')';ctx.lineWidth=3*sc;ctx.stroke();}
+      } else {
+        ellipse(p.x,p.y,9*sc,5*sc,'#f4bc22');ellipse(p.x+5*sc,p.y-5*sc,5*sc,5*sc,'#ffd73c');ctx.fillStyle='#ef7c25';ctx.beginPath();ctx.moveTo(p.x+9*sc,p.y-5*sc);ctx.lineTo(p.x+16*sc,p.y-2*sc);ctx.lineTo(p.x+9*sc,p.y);ctx.fill();
+      }
+    });
+    drawBoat(W/2,H*.56+boat.bob*sc,sc,t);
+    // Direction ribbon points toward the procedural destination.
+    var target=nearestTarget(),ang=Math.atan2(target.y-boat.y,target.x-boat.x);ctx.save();ctx.translate(W/2,H*.56);ctx.rotate(ang);ctx.fillStyle='rgba(255,255,255,.8)';ctx.beginPath();ctx.moveTo(0,-54*sc);ctx.lineTo(-7*sc,-38*sc);ctx.lineTo(7*sc,-38*sc);ctx.fill();ctx.restore();
+  }
+  function drawBoat(cx,cy,sc,t){ctx.save();ctx.translate(cx,cy);ctx.rotate(boat.roll*.17);ellipse(0,20*sc,52*sc,13*sc,'rgba(0,50,70,.24)');
+    ctx.fillStyle='#e75d4e';ctx.beginPath();ctx.moveTo(-45*sc,-12*sc);ctx.quadraticCurveTo(-39*sc,34*sc,0,40*sc);ctx.quadraticCurveTo(39*sc,34*sc,45*sc,-12*sc);ctx.quadraticCurveTo(0,-27*sc,-45*sc,-12*sc);ctx.fill();
+    ctx.fillStyle='#ffb75c';ctx.beginPath();ctx.ellipse(0,-7*sc,37*sc,17*sc,0,0,TAU);ctx.fill();ctx.strokeStyle='#813d38';ctx.lineWidth=4*sc;ctx.stroke();
+    ctx.fillStyle='#654030';ctx.fillRect(-3*sc,-70*sc,6*sc,63*sc);ctx.fillStyle='#fff2c6';ctx.beginPath();ctx.moveTo(3*sc,-67*sc);ctx.quadraticCurveTo(34*sc,-54*sc,30*sc,-24*sc);ctx.lineTo(3*sc,-30*sc);ctx.fill();ctx.fillStyle='#5db6d1';ctx.beginPath();ctx.moveTo(5*sc,-63*sc);ctx.quadraticCurveTo(29*sc,-52*sc,27*sc,-31*sc);ctx.lineTo(5*sc,-35*sc);ctx.fill();
+    // Rounded captain silhouette.
+    ellipse(-12*sc,-24*sc,8*sc,9*sc,'#6d3f2f');ellipse(-12*sc,-16*sc,9*sc,12*sc,'#65b56f');ellipse(-12*sc,-35*sc,8*sc,8*sc,'#f6b58b');
+    boat.cargo.forEach(function(c){var x=c.x*sc,y=(c.y+2)*sc;ctx.fillStyle='rgba(50,35,30,.2)';ctx.fillRect(x-7*sc,y-4*sc,16*sc,12*sc);ctx.fillStyle=c.color;ctx.fillRect(x-8*sc,y-9*sc,16*sc,14*sc);ctx.strokeStyle='#6d4c3a';ctx.lineWidth=1.5*sc;ctx.strokeRect(x-8*sc,y-9*sc,16*sc,14*sc);ctx.beginPath();ctx.moveTo(x-7*sc,y-8*sc);ctx.lineTo(x+7*sc,y+4*sc);ctx.moveTo(x+7*sc,y-8*sc);ctx.lineTo(x-7*sc,y+4*sc);ctx.stroke()});
+    if(boat.flood>5){ctx.fillStyle='rgba(27,152,183,.65)';ctx.beginPath();ctx.ellipse(0,8*sc,32*sc,8*sc,0,0,TAU);ctx.fill()}
+    ctx.restore()}
+  var RAMP="@%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
+  function projection(now){
+    var isMobile=innerWidth<600,maxCols=isMobile?58:96;cols=Math.round(Math.min(maxCols,cols));var rows=Math.max(14,Math.round(cols*(canvas.height/canvas.width)*.47));sample.width=cols;sample.height=rows;sctx.drawImage(canvas,0,0,cols,rows);var im=sctx.getImageData(0,0,cols,rows).data,lum=new Float32Array(cols*rows),mean=0,diff=0,min=1,max=0;
+    for(var p=0,j=0;p<im.length;p+=4,j++){var l=(im[p]*.299+im[p+1]*.587+im[p+2]*.114)/255;l=Math.pow(l,gamma);l=Math.max(0,Math.min(1,(l-.5)*contrast+.5));lum[j]=l;mean+=l;if(prevLum&&prevLum.length===lum.length)diff+=Math.abs(l-prevLum[j]);if(l<min)min=l;if(l>max)max=l}
+    mean/=lum.length;var raw=prevLum&&prevLum.length===lum.length?diff/lum.length:.12;motion=motion*.78+raw*.22;prevLum=lum;var chars=[],edgeCount=0;
+    if(engine==='sculpt'){
+      var mags=new Float32Array(lum.length),maxMag=.0001;for(var y=1;y<rows-1;y++)for(var x=1;x<cols-1;x++){j=y*cols+x;var gx=(lum[j+1]-lum[j-1])*.5,gy=(lum[j+cols]-lum[j-cols])*.5,mag=Math.hypot(gx,gy);mags[j]=mag;if(mag>maxMag)maxMag=mag}
+      for(y=0;y<rows;y++){var line='';for(x=0;x<cols;x++){j=y*cols+x;var mn=mags[j]/maxMag;if(mn>.13){edgeCount++;var gx2=(x&&x<cols-1)?lum[j+1]-lum[j-1]:0,gy2=(y&&y<rows-1)?lum[j+cols]-lum[j-cols]:0,a=(Math.atan2(gy2,gx2)*180/Math.PI+180)%180;line+=a<22.5||a>=157.5?(mn>.5?'┃':'│'):a<67.5?'╲':a<112.5?(mn>.5?'━':'─'):'╱'}else line+=RAMP[Math.min(RAMP.length-1,Math.floor(lum[j]*(RAMP.length-1)))]}chars.push(line)}
+    } else {for(y=0;y<rows;y++){line='';for(x=0;x<cols;x++){j=y*cols+x;line+=RAMP[Math.min(RAMP.length-1,Math.floor(lum[j]*(RAMP.length-1)))]}chars.push(line)}}
+    lastAscii=chars.join('\n');ascii.textContent=lastAscii;frameNo++;head.textContent='# frame '+frameNo+' t='+((now-startTime)/1000).toFixed(2)+'s cols='+cols+' rows='+rows+' engine='+engine;
+    var edgeDensity=engine==='sculpt'?edgeCount/lum.length:.18;var edgeScore=Math.max(0,1-Math.abs(edgeDensity-.18)/.18),contrastScore=Math.min(1,(max-min)/.72),stability=Math.max(0,1-motion*6);projection.quality=.4*edgeScore+.35*contrastScore+.25*stability;
+    if(captureLabel){captureFrames.push(lastAscii);if(captureFrames.length>=8)finishHighlight()}
+  }
+  function updateAdapt(){if(autoTune){var m=Math.min(1,motion*12+cameraMotion*.7);targetCols=90-m*42;targetFps=6+m*9;cols+= (targetCols-cols)*.22;fps+=(targetFps-fps)*.22;document.getElementById('colsRange').value=Math.round(cols);document.getElementById('fpsRange').value=Math.round(fps);document.getElementById('adaptText').textContent=(m>.58?'rough water → ':m>.27?'busy water → ':'calm water → ')+Math.round(cols)+' cols @ '+Math.round(fps)+'fps';document.getElementById('motionFill').style.width=Math.round(m*100)+'%'}else document.getElementById('adaptText').textContent='manual trim → '+Math.round(cols)+' cols @ '+Math.round(fps)+'fps';document.getElementById('colsVal').textContent=Math.round(cols);document.getElementById('fpsVal').textContent=Math.round(fps)}
+  function snapshot(now){var row={timestamp:new Date().toISOString(),engine:engine,cols:Math.round(cols),fps:Math.round(fps),contrast:+contrast.toFixed(2),gamma:+gamma.toFixed(2),motion:+motion.toFixed(4),placeholder_quality:+(projection.quality||0).toFixed(3),scene:{wave_height:+Math.abs(wave(boat.x,boat.y,now/1000)).toFixed(3),boat_speed:+boat.speed.toFixed(2),cargo_count:boat.cargo.length,camera_movement:+cameraMotion.toFixed(3)}};logBuffer.push(row);if(logBuffer.length>180)logBuffer.shift();document.getElementById('log').textContent=logBuffer.slice(-8).map(function(r){return JSON.stringify(r)}).join('\n')}
+  function hud(){document.getElementById('coins').textContent=boat.coins+' shells';document.getElementById('cargo').textContent=boat.cargo.length+' crate'+(boat.cargo.length===1?'':'s');document.getElementById('hull').textContent=Math.round(Math.max(0,boat.hull-boat.flood*.25))+'% · '+(boat.flood>55?'glugging':boat.hull<75?'damp':'jaunty');document.getElementById('helmStatus').textContent=auto?'Autopilot':'Your hands';document.getElementById('autoBtn').textContent=auto?'AUTO':'YOU'}
+  function loop(now){var dt=Math.min(.035,(now-last)/1000);last=now;if(running)update(dt,now);drawScene(now);if(now-projLast>1000/Math.max(4,fps)){projection(now);projLast=now;updateAdapt()}if(now-logLast>1000){snapshot(now);logLast=now;hud()}requestAnimationFrame(loop)}
+  requestAnimationFrame(loop);
+  function startGame(watch){document.getElementById('start').classList.add('hidden');running=true;auto=watch;manualUntil=watch?0:performance.now()+10000;if(!watch)toast('Arrows or A/D steer. The autopilot takes over when you let go.');sound('coin')}
+  document.getElementById('sailBtn').onclick=function(){startGame(false)};document.getElementById('watchBtn').onclick=function(){startGame(true)};
+  document.getElementById('autoBtn').onclick=function(){auto=!auto;manualUntil=auto?0:performance.now()+15000;hud();toast(auto?'Autopilot has the tiny hat.':'Helm is yours for a while.')};
+  document.querySelectorAll('[data-steer]').forEach(function(b){function on(e){e.preventDefault();heldSteer=+b.dataset.steer;b.classList.add('active');auto=false;manualUntil=performance.now()+4500}function off(e){if(e)e.preventDefault();heldSteer=0;b.classList.remove('active')}b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off)});
+  addEventListener('keydown',function(e){if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','a','d','w','s'].indexOf(e.key)>-1){e.preventDefault();keys[e.key]=true}});addEventListener('keyup',function(e){keys[e.key]=false});
+  document.querySelectorAll('[data-engine]').forEach(function(b){b.onclick=function(){engine=b.dataset.engine;document.querySelectorAll('[data-engine]').forEach(function(x){x.classList.toggle('on',x===b)});prevLum=null;toast(engine==='glyph'?'Glyph reads light.':'Sculpt reads edges.')}});
+  document.getElementById('tuneBtn').onclick=function(){autoTune=!autoTune;this.classList.toggle('on',autoTune);this.textContent='Auto-tune '+(autoTune?'on':'off')};
+  [['colsRange','colsVal',function(v){cols=+v}],['fpsRange','fpsVal',function(v){fps=+v}],['contrastRange','contrastVal',function(v){contrast=v/100}],['gammaRange','gammaVal',function(v){gamma=v/100}]].forEach(function(a){var el=document.getElementById(a[0]);el.oninput=function(){autoTune=false;document.getElementById('tuneBtn').classList.remove('on');document.getElementById('tuneBtn').textContent='Auto-tune off';a[2](+this.value);document.getElementById(a[1]).textContent=a[0].indexOf('Range')&&a[0]!=='colsRange'&&a[0]!=='fpsRange'?(+this.value/100).toFixed(2):this.value;prevLum=null}});
+  document.querySelectorAll('[data-tab]').forEach(function(b){b.onclick=function(){document.querySelectorAll('[data-tab]').forEach(function(x){x.setAttribute('aria-selected',x===b?'true':'false')});document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id===b.dataset.tab)})}});
+  document.querySelectorAll('[data-full]').forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.full);if(document.fullscreenElement)document.exitFullscreen();else if(el.requestFullscreen)el.requestFullscreen()}});
+  document.getElementById('downloadBtn').onclick=function(){var blob=new Blob([logBuffer.map(function(r){return JSON.stringify(r)}).join('\n')+'\n'],{type:'application/x-ndjson'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sail-and-sink-training-log.jsonl';a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)};
+  function renderReel(){var grid=document.getElementById('reelGrid');grid.innerHTML='';reel.forEach(function(clip){var b=document.createElement('button');b.className='clip';var pre=document.createElement('pre'),cap=document.createElement('b');pre.textContent=clip.frames[0];cap.textContent=clip.label;b.appendChild(pre);b.appendChild(cap);b.onclick=function(){var n=0;clearInterval(b.timer);b.timer=setInterval(function(){pre.textContent=clip.frames[n++%clip.frames.length]},130)};grid.appendChild(b)});document.getElementById('reelCount').textContent=reel.length}
+  addEventListener('resize',function(){prevLum=null});setTarget(0);
+})();
+</script>
+</body>
+</html>
