@@ -123,7 +123,7 @@
       </div>
       <div class="panel active" id="render" role="tabpanel">
         <h2>Make light into marks</h2><p class="lede">The projection now measures its own window and fills it. Start with the first two Chiaroscuro doors, choose a Studio look, or open every working dial below.</p><p class="now-showing" id="nowShowing">Now showing: The Original</p>
-        <div class="switches"><button class="on" data-engine="glyph">Glyph engine</button><button data-engine="sculpt">Sculpt / edge</button><button class="on" id="tuneBtn">Auto-tune on</button><button class="on" id="fitBtn">Auto-fit on</button></div>
+        <div class="switches"><button class="on" data-engine="glyph">Glyph engine</button><button data-engine="sculpt">Sculpt / edge</button><button class="on" id="tuneBtn">Auto-tune on</button><button class="on" id="learnBtn">Learn on</button><button class="on" id="fitBtn">Auto-fit on</button></div>
         <div class="preset-row" aria-label="Projection presets"><button class="on" data-preset="original">① The Original</button><button data-preset="sculptor">② The Sculptor</button><button data-preset="matrix">Green Matrix</button><button data-preset="amber">Amber Terminal</button><button data-preset="blueprint">Blueprint</button><button data-preset="neon">Neon Noir</button><span class="fit-note" id="fitNote">Density follows the Projectionist window</span></div>
         <div class="control-groups">
           <section class="control-group"><h3>Tone</h3>
@@ -179,7 +179,7 @@
       </div>
       <div class="panel" id="data" role="tabpanel">
         <h2>A useful wake</h2><p class="lede">One row per second, ready for later experiments. Nothing leaves this page unless you download it.</p>
-        <div class="data-grid"><div class="formula"><strong>Placeholder reward, not intelligence</strong><p>The quality score combines edge density near a useful target, contrast use, and temporal stability:</p><code>0.40 edge band + 0.35 contrast + 0.25 stability</code><p>It is a legible starting signal for a future supervised policy, not a claim that the renderer knows what looks good.</p><button class="download" id="downloadBtn">Download training log · JSONL</button></div><pre id="log">Waiting for the first sample…</pre></div>
+        <div class="data-grid"><div class="formula"><strong>Placeholder reward, not intelligence</strong><p>The quality score combines edge density near a useful target, contrast use, and temporal stability:</p><code>0.40 edge band + 0.35 contrast + 0.25 stability</code><p>It is a legible starting signal for a future supervised policy, not a claim that the renderer knows what looks good.</p><button class="download" id="downloadBtn">Download training log · JSONL</button><p style="margin-top:10px"><strong>Learner</strong> — best render settings per scene bucket, re-seeded with jitter every 20s. Variation, selection, memory; no watcher, no debt.</p><pre id="learnState" style="font:400 .7rem/1.5 \"DM Mono\",monospace;background:var(--code);color:var(--code-ink);border-radius:10px;padding:10px;white-space:pre-wrap">learner warming up…</pre></div><pre id="log">Waiting for the first sample…</pre></div>
       </div>
       <div class="panel" id="future" role="tabpanel">
         <h2>Built small enough to teach</h2><p class="lede">Today the rules are visible: more motion means fewer columns and more frames. Tomorrow the same inputs can train something subtler.</p>
@@ -360,7 +360,63 @@
   function updateDirector(now){if(!directorTarget||now>directorUntil)chooseDirector(now,false);var cur=currentSettings(),next={};Object.keys(directorTarget).forEach(function(k){var a=cur[k],b=directorTarget[k];next[k]=(typeof a==='number'&&typeof b==='number')?a+(b-a)*.06:b});writeSettings(next);syncControls(true);document.getElementById('adaptText').textContent='Director → '+document.getElementById('directorName').textContent;document.getElementById('motionFill').style.width=Math.round(Math.min(1,motion*14)*100)+'%'}
   function setDirectorUI(on){directorOn=on;document.getElementById('render').classList.toggle('director-on',on);document.getElementById('directorBtn').classList.toggle('on',on);document.getElementById('directorBtn').textContent=on?'Director on':'Let go';if(!on)document.getElementById('directorName').textContent='Waiting in the wings'}
   function updateAdapt(){var m=Math.min(1,motion*12+cameraMotion*.7);if(autoTune){var base=densityManual?cols:fittedDensity();targetCols=Math.max(30,base*(1-m*.36));targetFps=18+m*26;if(!densityManual)cols+=(targetCols-cols)*.22;fps+=(targetFps-fps)*.22;edgeGain=8+m*3;contrast=1.25+m*.18;setControl('densityRange',cols,'densityVal');setControl('fpsRange',fps,'fpsVal');setControl('edgeGainRange',edgeGain,'edgeGainVal');setControl('contrastRange',(contrast-1)*100,'contrastVal');document.getElementById('nowShowing').textContent='Now showing: Auto-tuner · '+(m>.58?'rough water':m>.27?'busy water':'calm water');document.getElementById('adaptText').textContent=(m>.58?'rough water → ':m>.27?'busy water → ':'calm water → ')+Math.round(cols)+' cols @ '+Math.round(fps)+'fps';document.getElementById('motionFill').style.width=Math.round(m*100)+'%'}else document.getElementById('adaptText').textContent='manual trim → '+Math.round(cols)+' cols @ '+Math.round(fps)+'fps'}
-  function snapshot(now){var row={timestamp:new Date().toISOString(),engine:engine,cols:Math.round(cols),fps:Math.round(fps),tone_mix:+toneMix.toFixed(2),edge_mix:+edgeMix.toFixed(2),edge_gain:+edgeGain.toFixed(2),edge_detector:edgeDetector,ramp:rampName,brightness:+brightness.toFixed(2),contrast:+contrast.toFixed(2),gamma:+gamma.toFixed(2),black_point:+blackPoint.toFixed(3),white_point:+whitePoint.toFixed(3),zoom:+zoom.toFixed(2),cell_aspect:+cellAspect.toFixed(2),color_mode:colorMode,motion:+motion.toFixed(4),placeholder_quality:+(projection.quality||0).toFixed(3),scene:{wave_height:+Math.abs(wave(boat.x,boat.y,now/1000)).toFixed(3),boat_speed:+boat.speed.toFixed(2),cargo_count:boat.cargo.length,camera_movement:+cameraMotion.toFixed(3),compartments:boat.comps.map(function(c){return Math.round(c.flood)})}};logBuffer.push(row);if(logBuffer.length>180)logBuffer.shift();document.getElementById('log').textContent=logBuffer.slice(-8).map(function(r){return JSON.stringify(r)}).join('\n')}
+
+  // LEARN — the simplest learning loop: variation, selection, memory.
+  // Every snapshot scores the current render (projection.quality). The
+  // learner remembers the best-scoring settings per scene bucket, then
+  // re-seeds from the best with a small random jitter (mutation). No
+  // watcher, no debt, no ledger — the game's own telemetry is the teacher.
+  var learnOn = true, learnBest = {}, learnLastApply = 0, learnSeen = 0;
+  try { learnBest = JSON.parse(localStorage.getItem('sailLearn') || '{}'); } catch(e) { learnBest = {}; }
+  function sceneBucket(){
+    var w = Math.abs(wave(boat.x, boat.y, performance.now()/1000));
+    var wb = w < .6 ? 0 : w < 1.2 ? 1 : 2;
+    var sb = boat.speed < 3 ? 0 : boat.speed < 8 ? 1 : 2;
+    return wb + ':' + sb;
+  }
+  function learnSettings(){
+    return {toneMix:toneMix, edgeMix:edgeMix, brightness:brightness,
+            gamma:gamma, blackPoint:blackPoint, whitePoint:whitePoint,
+            zoom:zoom, cellAspect:cellAspect};
+  }
+  function learnObserve(){
+    if(!learnOn || !running) return;
+    var b = sceneBucket(), q = projection.quality || 0;
+    learnSeen++;
+    if(!learnBest[b] || q > learnBest[b].q){
+      learnBest[b] = {q: +q.toFixed(3), s: learnSettings(), n: (learnBest[b]?learnBest[b].n:0)+1};
+      try { localStorage.setItem('sailLearn', JSON.stringify(learnBest)); } catch(e) {}
+    }
+    var el = document.getElementById('learnState');
+    if(el){
+      var ks = Object.keys(learnBest).sort();
+      el.textContent = learnStatus() + '\n' + ks.map(function(k){
+        return 'bucket ' + k + ' · best q ' + learnBest[k].q.toFixed(3) +
+               ' · seen ' + learnBest[k].n + '×';
+      }).join('\n');
+    }
+  }
+  function learnApply(){
+    // Seed from the best-known settings for this scene, plus jitter.
+    // Only touches settings the auto-tuner doesn't own.
+    var b = sceneBucket(), best = learnBest[b];
+    if(!best || !learnOn) return;
+    var j = function(v, amt, lo, hi){ return Math.max(lo, Math.min(hi, v + (rand()*2-1)*amt)); };
+    var s = best.s;
+    toneMix = j(s.toneMix, .07, 0, 1); edgeMix = j(s.edgeMix, .07, 0, 1);
+    brightness = j(s.brightness, .06, -1, 1); gamma = j(s.gamma, .07, .3, 3);
+    blackPoint = j(s.blackPoint, .02, 0, .4); whitePoint = j(s.whitePoint, .02, .6, 1);
+    zoom = j(s.zoom, .06, .55, 1.7); cellAspect = j(s.cellAspect, .04, .3, 1);
+    if(blackPoint > whitePoint - .01) blackPoint = whitePoint - .01;
+    syncControls(false);
+  }
+  function learnStatus(){
+    var ks = Object.keys(learnBest), best = 0;
+    ks.forEach(function(k){ if(learnBest[k].q > best) best = learnBest[k].q; });
+    return 'learn ' + (learnOn ? 'on' : 'off') + ' · ' + ks.length + '/9 buckets · ' +
+           learnSeen + ' scored · best q ' + best.toFixed(2);
+  }
+  function snapshot(now){var row={timestamp:new Date().toISOString(),engine:engine,cols:Math.round(cols),fps:Math.round(fps),tone_mix:+toneMix.toFixed(2),edge_mix:+edgeMix.toFixed(2),edge_gain:+edgeGain.toFixed(2),edge_detector:edgeDetector,ramp:rampName,brightness:+brightness.toFixed(2),contrast:+contrast.toFixed(2),gamma:+gamma.toFixed(2),black_point:+blackPoint.toFixed(3),white_point:+whitePoint.toFixed(3),zoom:+zoom.toFixed(2),cell_aspect:+cellAspect.toFixed(2),color_mode:colorMode,motion:+motion.toFixed(4),placeholder_quality:+(projection.quality||0).toFixed(3),scene:{wave_height:+Math.abs(wave(boat.x,boat.y,now/1000)).toFixed(3),boat_speed:+boat.speed.toFixed(2),cargo_count:boat.cargo.length,camera_movement:+cameraMotion.toFixed(3),compartments:boat.comps.map(function(c){return Math.round(c.flood)})}};logBuffer.push(row);if(logBuffer.length>180)logBuffer.shift();document.getElementById('log').textContent=logBuffer.slice(-8).map(function(r){return JSON.stringify(r)}).join('\n');learnObserve();if(learnOn && now-learnLastApply>20000){learnLastApply=now;learnApply();}}
   function compDiagram(){var rows={bow:[],mid:[],stern:[]};boat.comps.forEach(function(c){rows[c.id.split('-')[0]].push(c.flood<10?'·':c.flood<50?'~':'≈')});return 'BOW '+rows.bow.join('')+'\nMID '+rows.mid.join('')+'\nSTN '+rows.stern.join('')}
   function hud(){document.getElementById('coins').textContent=boat.coins+' shells';document.getElementById('cargo').textContent=boat.cargo.length+' crate'+(boat.cargo.length===1?'':'s');var names=[];boat.comps.forEach(function(c){if(c.breached)names.push(c.id.toUpperCase())});var word=boat.flood>55?'glugging':Math.abs(boat.listBias)>.12?('listing '+(boat.listBias>0?'starboard':'port')):boat.hull<75?'damp':'jaunty';var hullEl=document.getElementById('hull');hullEl.textContent=Math.round(boat.hull)+'% · '+word+(names.length?' · '+names.join(', '):'');hullEl.title=compDiagram();document.getElementById('helmStatus').textContent=auto?'Autopilot':'Your hands';document.getElementById('autoBtn').textContent=auto?'AUTO':'YOU'}
   function loop(now){var dt=Math.min(.035,(now-last)/1000);last=now;advanceSettingAnimation(now);if(running&&!sourceFrozen&&!mockMode){update(dt*timeScale,now);updateScenario(dt,false)}if(!sourceFrozen)drawScene(now);if(now-projLast>1000/Math.max(4,fps)){if(directorOn)updateDirector(now);projection(now);projLast=now;if(!directorOn&&!presetAnimation)updateAdapt()}if(now-logLast>1000){snapshot(now);logLast=now;hud()}requestAnimationFrame(loop)}
@@ -374,10 +430,11 @@
   function stepPreset(dir){var i=Math.max(0,presetOrder.indexOf(activePreset));i=(i+dir+presetOrder.length)%presetOrder.length;applyPreset(presetOrder[i])}
   addEventListener('keydown',function(e){var tag=(document.activeElement&&document.activeElement.tagName)||'';if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!/INPUT|SELECT/.test(tag)){e.preventDefault();stepPreset(e.key==='ArrowRight'?1:-1);return}if(['ArrowUp','ArrowDown','a','d','w','s'].indexOf(e.key)>-1){e.preventDefault();keys[e.key]=true}});addEventListener('keyup',function(e){keys[e.key]=false});
   document.querySelectorAll('[data-engine]').forEach(function(b){b.onclick=function(){engine=b.dataset.engine;if(engine==='sculpt'&&edgeMix<.65)edgeMix=.8;document.querySelectorAll('[data-engine]').forEach(function(x){x.classList.toggle('on',x===b)});syncControls(true);prevLum=null;setStatus(engine==='glyph'?'Glyph reads light':'Sculpt reads edges',1800)}});
+  document.getElementById('learnBtn').onclick=function(){learnOn=!learnOn;this.classList.toggle('on',learnOn);this.textContent='Learn '+(learnOn?'on':'off');setStatus(learnStatus(),1800)};
   document.getElementById('tuneBtn').onclick=function(){autoTune=!autoTune;if(autoTune){setDirectorUI(false);presetAnimation=null}this.classList.toggle('on',autoTune);this.textContent='Auto-tune '+(autoTune?'on':'off');setStatus(autoTune?'auto-tuner is breathing with the sea':'auto-tuner parked',1800)};
   document.getElementById('fitBtn').onclick=function(){densityManual=!densityManual;this.classList.toggle('on',!densityManual);this.textContent='Auto-fit '+(!densityManual?'on':'off');if(!densityManual){syncAutoDensity(true);fitAscii(lastRows);setStatus('density fitted to this window',1800)}else setStatus('density held manually',1800)};
   document.querySelectorAll('[data-preset]').forEach(function(b){b.onclick=function(){applyPreset(b.dataset.preset)}});
-  function manualMove(){autoTune=false;presetAnimation=null;document.getElementById('tuneBtn').classList.remove('on');document.getElementById('tuneBtn').textContent='Auto-tune off';activePreset='';document.querySelectorAll('[data-preset]').forEach(function(b){b.classList.remove('on')});document.getElementById('nowShowing').textContent='Now showing: Hand-tuned';prevLum=null}
+  function manualMove(){autoTune=false;learnOn=false;var lb=document.getElementById('learnBtn');if(lb){lb.classList.remove('on');lb.textContent='Learn off'}presetAnimation=null;document.getElementById('tuneBtn').classList.remove('on');document.getElementById('tuneBtn').textContent='Auto-tune off';activePreset='';document.querySelectorAll('[data-preset]').forEach(function(b){b.classList.remove('on')});document.getElementById('nowShowing').textContent='Now showing: Hand-tuned';prevLum=null}
   var rangeBindings={toneMixRange:function(v){toneMix=v/100},edgeMixRange:function(v){edgeMix=v/100},edgeGainRange:function(v){edgeGain=v},brailleRange:function(v){brailleDetail=v/100},ditherRange:function(v){dither=v/100},posterizeRange:function(v){posterize=v},densityRange:function(v){cols=v;densityManual=true;document.getElementById('fitBtn').classList.remove('on');document.getElementById('fitBtn').textContent='Auto-fit off'},fpsRange:function(v){fps=v},zoomRange:function(v){zoom=v/100},glyphScaleRange:function(v){glyphScale=v/100},cellShapeRange:function(v){cellAspect=v/100},brightnessRange:function(v){brightness=v/100},contrastRange:function(v){contrast=1+v/100},gammaRange:function(v){gamma=v/100},blackPointRange:function(v){blackPoint=Math.min(v/255,whitePoint-.01)},whitePointRange:function(v){whitePoint=Math.max(v/255,blackPoint+.01)},lightAngleRange:function(v){lightAngle=v},reliefRange:function(v){relief=v/100},edgeThresholdRange:function(v){edgeThreshold=v/100},hueRange:function(v){phosphorHue=v}};
   Object.keys(rangeBindings).forEach(function(id){var el=document.getElementById(id);el.oninput=function(){manualMove();rangeBindings[id](+this.value);syncControls(false);pulseControl(this);setStatus('hand-tuning '+this.previousElementSibling.textContent.split(/\s+\d/)[0].trim(),900)}});
   ['edgeDetector','edgePaint','rampSelect','colorMode'].forEach(function(id){document.getElementById(id).onchange=function(){manualMove();if(id==='edgeDetector')edgeDetector=this.value;if(id==='edgePaint')edgePaint=this.value;if(id==='rampSelect')rampName=this.value;if(id==='colorMode')colorMode=this.value;syncControls(true)}});
