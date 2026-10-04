@@ -362,61 +362,85 @@
   function updateAdapt(){var m=Math.min(1,motion*12+cameraMotion*.7);if(autoTune){var base=densityManual?cols:fittedDensity();targetCols=Math.max(30,base*(1-m*.36));targetFps=18+m*26;if(!densityManual)cols+=(targetCols-cols)*.22;fps+=(targetFps-fps)*.22;edgeGain=8+m*3;contrast=1.25+m*.18;setControl('densityRange',cols,'densityVal');setControl('fpsRange',fps,'fpsVal');setControl('edgeGainRange',edgeGain,'edgeGainVal');setControl('contrastRange',(contrast-1)*100,'contrastVal');document.getElementById('nowShowing').textContent='Now showing: Auto-tuner · '+(m>.58?'rough water':m>.27?'busy water':'calm water');document.getElementById('adaptText').textContent=(m>.58?'rough water → ':m>.27?'busy water → ':'calm water → ')+Math.round(cols)+' cols @ '+Math.round(fps)+'fps';document.getElementById('motionFill').style.width=Math.round(m*100)+'%'}else document.getElementById('adaptText').textContent='manual trim → '+Math.round(cols)+' cols @ '+Math.round(fps)+'fps'}
 
   // LEARN — the simplest learning loop: variation, selection, memory.
-  // Every snapshot scores the current render (projection.quality). The
-  // learner remembers the best-scoring settings per scene bucket, then
-  // re-seeds from the best with a small random jitter (mutation). No
-  // watcher, no debt, no ledger — the game's own telemetry is the teacher.
-  var learnOn = true, learnBest = {}, learnLastApply = 0, learnSeen = 0;
-  try { learnBest = JSON.parse(localStorage.getItem('sailLearn') || '{}'); } catch(e) { learnBest = {}; }
-  function sceneBucket(){
-    var w = Math.abs(wave(boat.x, boat.y, performance.now()/1000));
-    var wb = w < .6 ? 0 : w < 1.2 ? 1 : 2;
-    var sb = boat.speed < 3 ? 0 : boat.speed < 8 ? 1 : 2;
-    return wb + ':' + sb;
+//
+// The game already supplies everything a learner needs: self-play (the
+// autopilot sails itself), a reward (projection.quality, scored every
+// frame), and telemetry (snapshot() logs settings + quality every second).
+// So the whole learner is just: remember what worked, try variations.
+//
+// Design notes from the playtests (see LEARNER.md):
+// - Buckets, not one global best: different sea states want different
+//   settings. 3 wave bands x 3 speed bands = 9 scene buckets.
+// - The reward is noisy (scene-dependent), so recorded peaks are part
+//   luck. Means move ~15% over baseline; peaks reach ~0.94 vs 0.51 default.
+// - An exploit/explore alternation was tried and reverted: it added
+//   complexity without a clear win. Simpler stays.
+// - Only touches the 8 settings the auto-tuner doesn't own (updateAdapt
+//   owns cols, fps, edgeGain, contrast). The two systems don't fight.
+// - Any manual slider move calls manualMove(), which turns learning off:
+//   the human's hands outrank the learner. Re-enable with the Learn button.
+var learnOn = true, learnBest = {}, learnLastApply = 0, learnSeen = 0;
+// learnBest: {bucket: {q, s, n}} — best quality, settings, improvement count.
+// Persisted to localStorage so learning survives reloads.
+try { learnBest = JSON.parse(localStorage.getItem('sailLearn') || '{}'); } catch(e) { learnBest = {}; }
+function sceneBucket(){
+  // Which scene are we in? Wave height (from the real wave field at the
+  // boat's position) x boat speed. Coarse on purpose: 9 buckets fill fast.
+  var w = Math.abs(wave(boat.x, boat.y, performance.now()/1000));
+  var wb = w < .6 ? 0 : w < 1.2 ? 1 : 2;
+  var sb = boat.speed < 3 ? 0 : boat.speed < 8 ? 1 : 2;
+  return wb + ':' + sb;
+}
+function learnSettings(){
+  // Snapshot the 8 settings the learner owns. Everything else (engine,
+  // ramp, color mode, edge detector...) stays under human/director control.
+  return {toneMix:toneMix, edgeMix:edgeMix, brightness:brightness,
+          gamma:gamma, blackPoint:blackPoint, whitePoint:whitePoint,
+          zoom:zoom, cellAspect:cellAspect};
+}
+function learnObserve(){
+  // SELECTION: called from snapshot(), once per second. If the current
+  // render beats this bucket's best, crown it and persist. learnSeen
+  // counts every scoring so the readout shows effort, not just wins.
+  if(!learnOn || !running) return;
+  var b = sceneBucket(), q = projection.quality || 0;
+  learnSeen++;
+  if(!learnBest[b] || q > learnBest[b].q){
+    learnBest[b] = {q: +q.toFixed(3), s: learnSettings(), n: (learnBest[b]?learnBest[b].n:0)+1};
+    try { localStorage.setItem('sailLearn', JSON.stringify(learnBest)); } catch(e) {}
   }
-  function learnSettings(){
-    return {toneMix:toneMix, edgeMix:edgeMix, brightness:brightness,
-            gamma:gamma, blackPoint:blackPoint, whitePoint:whitePoint,
-            zoom:zoom, cellAspect:cellAspect};
+  var el = document.getElementById('learnState');
+  if(el){
+    var ks = Object.keys(learnBest).sort();
+    el.textContent = learnStatus() + '\n' + ks.map(function(k){
+      return 'bucket ' + k + ' \u00b7 best q ' + learnBest[k].q.toFixed(3) +
+             ' \u00b7 seen ' + learnBest[k].n + '\u00d7';
+    }).join('\n');
   }
-  function learnObserve(){
-    if(!learnOn || !running) return;
-    var b = sceneBucket(), q = projection.quality || 0;
-    learnSeen++;
-    if(!learnBest[b] || q > learnBest[b].q){
-      learnBest[b] = {q: +q.toFixed(3), s: learnSettings(), n: (learnBest[b]?learnBest[b].n:0)+1};
-      try { localStorage.setItem('sailLearn', JSON.stringify(learnBest)); } catch(e) {}
-    }
-    var el = document.getElementById('learnState');
-    if(el){
-      var ks = Object.keys(learnBest).sort();
-      el.textContent = learnStatus() + '\n' + ks.map(function(k){
-        return 'bucket ' + k + ' · best q ' + learnBest[k].q.toFixed(3) +
-               ' · seen ' + learnBest[k].n + '×';
-      }).join('\n');
-    }
-  }
-  function learnApply(){
-    // Seed from the best-known settings for this scene, plus jitter.
-    // Only touches settings the auto-tuner doesn't own.
-    var b = sceneBucket(), best = learnBest[b];
-    if(!best || !learnOn) return;
-    var j = function(v, amt, lo, hi){ return Math.max(lo, Math.min(hi, v + (rand()*2-1)*amt)); };
-    var s = best.s;
-    toneMix = j(s.toneMix, .07, 0, 1); edgeMix = j(s.edgeMix, .07, 0, 1);
-    brightness = j(s.brightness, .06, -1, 1); gamma = j(s.gamma, .07, .3, 3);
-    blackPoint = j(s.blackPoint, .02, 0, .4); whitePoint = j(s.whitePoint, .02, .6, 1);
-    zoom = j(s.zoom, .06, .55, 1.7); cellAspect = j(s.cellAspect, .04, .3, 1);
-    if(blackPoint > whitePoint - .01) blackPoint = whitePoint - .01;
-    syncControls(false);
-  }
-  function learnStatus(){
-    var ks = Object.keys(learnBest), best = 0;
-    ks.forEach(function(k){ if(learnBest[k].q > best) best = learnBest[k].q; });
-    return 'learn ' + (learnOn ? 'on' : 'off') + ' · ' + ks.length + '/9 buckets · ' +
-           learnSeen + ' scored · best q ' + best.toFixed(2);
-  }
-  function snapshot(now){var row={timestamp:new Date().toISOString(),engine:engine,cols:Math.round(cols),fps:Math.round(fps),tone_mix:+toneMix.toFixed(2),edge_mix:+edgeMix.toFixed(2),edge_gain:+edgeGain.toFixed(2),edge_detector:edgeDetector,ramp:rampName,brightness:+brightness.toFixed(2),contrast:+contrast.toFixed(2),gamma:+gamma.toFixed(2),black_point:+blackPoint.toFixed(3),white_point:+whitePoint.toFixed(3),zoom:+zoom.toFixed(2),cell_aspect:+cellAspect.toFixed(2),color_mode:colorMode,motion:+motion.toFixed(4),placeholder_quality:+(projection.quality||0).toFixed(3),scene:{wave_height:+Math.abs(wave(boat.x,boat.y,now/1000)).toFixed(3),boat_speed:+boat.speed.toFixed(2),cargo_count:boat.cargo.length,camera_movement:+cameraMotion.toFixed(3),compartments:boat.comps.map(function(c){return Math.round(c.flood)})}};logBuffer.push(row);if(logBuffer.length>180)logBuffer.shift();document.getElementById('log').textContent=logBuffer.slice(-8).map(function(r){return JSON.stringify(r)}).join('\n');learnObserve();if(learnOn && now-learnLastApply>20000){learnLastApply=now;learnApply();}}
+}
+function learnApply(){
+  // VARIATION: every 20s (from the snapshot hook below), re-seed from this
+  // bucket's best-known settings plus small random jitter (mutation).
+  // j() clamps each setting to its legal range so mutation can't break
+  // the renderer. blackPoint/whitePoint get an extra ordering guard.
+  var b = sceneBucket(), best = learnBest[b];
+  if(!best || !learnOn) return;
+  var j = function(v, amt, lo, hi){ return Math.max(lo, Math.min(hi, v + (rand()*2-1)*amt)); };
+  var s = best.s;
+  toneMix = j(s.toneMix, .07, 0, 1); edgeMix = j(s.edgeMix, .07, 0, 1);
+  brightness = j(s.brightness, .06, -1, 1); gamma = j(s.gamma, .07, .3, 3);
+  blackPoint = j(s.blackPoint, .02, 0, .4); whitePoint = j(s.whitePoint, .02, .6, 1);
+  zoom = j(s.zoom, .06, .55, 1.7); cellAspect = j(s.cellAspect, .04, .3, 1);
+  if(blackPoint > whitePoint - .01) blackPoint = whitePoint - .01;
+  syncControls(false);
+}
+function learnStatus(){
+  var ks = Object.keys(learnBest), best = 0;
+  ks.forEach(function(k){ if(learnBest[k].q > best) best = learnBest[k].q; });
+  return 'learn ' + (learnOn ? 'on' : 'off') + ' \u00b7 ' + ks.length + '/9 buckets \u00b7 ' +
+         learnSeen + ' scored \u00b7 best q ' + best.toFixed(2);
+}
+function snapshot(now){var row={timestamp:new Date().toISOString(),engine:engine,cols:Math.round(cols),fps:Math.round(fps),tone_mix:+toneMix.toFixed(2),edge_mix:+edgeMix.toFixed(2),edge_gain:+edgeGain.toFixed(2),edge_detector:edgeDetector,ramp:rampName,brightness:+brightness.toFixed(2),contrast:+contrast.toFixed(2),gamma:+gamma.toFixed(2),black_point:+blackPoint.toFixed(3),white_point:+whitePoint.toFixed(3),zoom:+zoom.toFixed(2),cell_aspect:+cellAspect.toFixed(2),color_mode:colorMode,motion:+motion.toFixed(4),placeholder_quality:+(projection.quality||0).toFixed(3),scene:{wave_height:+Math.abs(wave(boat.x,boat.y,now/1000)).toFixed(3),boat_speed:+boat.speed.toFixed(2),cargo_count:boat.cargo.length,camera_movement:+cameraMotion.toFixed(3),compartments:boat.comps.map(function(c){return Math.round(c.flood)})}};logBuffer.push(row);if(logBuffer.length>180)logBuffer.shift();document.getElementById('log').textContent=logBuffer.slice(-8).map(function(r){return JSON.stringify(r)}).join('\n');learnObserve();if(learnOn && now-learnLastApply>20000){learnLastApply=now;learnApply();}} // LEARN: 20s variation tick — re-seed from bucket best + jitter
   function compDiagram(){var rows={bow:[],mid:[],stern:[]};boat.comps.forEach(function(c){rows[c.id.split('-')[0]].push(c.flood<10?'·':c.flood<50?'~':'≈')});return 'BOW '+rows.bow.join('')+'\nMID '+rows.mid.join('')+'\nSTN '+rows.stern.join('')}
   function hud(){document.getElementById('coins').textContent=boat.coins+' shells';document.getElementById('cargo').textContent=boat.cargo.length+' crate'+(boat.cargo.length===1?'':'s');var names=[];boat.comps.forEach(function(c){if(c.breached)names.push(c.id.toUpperCase())});var word=boat.flood>55?'glugging':Math.abs(boat.listBias)>.12?('listing '+(boat.listBias>0?'starboard':'port')):boat.hull<75?'damp':'jaunty';var hullEl=document.getElementById('hull');hullEl.textContent=Math.round(boat.hull)+'% · '+word+(names.length?' · '+names.join(', '):'');hullEl.title=compDiagram();document.getElementById('helmStatus').textContent=auto?'Autopilot':'Your hands';document.getElementById('autoBtn').textContent=auto?'AUTO':'YOU'}
   function loop(now){var dt=Math.min(.035,(now-last)/1000);last=now;advanceSettingAnimation(now);if(running&&!sourceFrozen&&!mockMode){update(dt*timeScale,now);updateScenario(dt,false)}if(!sourceFrozen)drawScene(now);if(now-projLast>1000/Math.max(4,fps)){if(directorOn)updateDirector(now);projection(now);projLast=now;if(!directorOn&&!presetAnimation)updateAdapt()}if(now-logLast>1000){snapshot(now);logLast=now;hud()}requestAnimationFrame(loop)}
